@@ -1,373 +1,440 @@
-# Analyse Comparative du Projet INFLUENCE
-## Réseaux d'Influence et Recommandations en Ligne
+# 🚀 Guide d'Installation et d'Exécution
+## Dashboard Influence - PROJET-INFLUENCE
 
 ---
 
-## 1. Résumé Exécutif
+## 📋 Table des Matières
 
-Analyse de l'état d'avancement du projet par rapport aux exigences définies dans le cahier des charges. Cette évaluation porte sur l'architecture Big Data, les composants développés et les livrables attendus.
-
----
-
-## 2. Architecture Globale
-
-### 2.1 Composants Demandés vs Réalisés
-
-| Composant | Statut | Détails |
-|-----------|--------|---------|
-| **Kafka Producer** | ✅ Réalisé | Script `kafka/producer.py` fonctionnel |
-| **Kafka Consumer (Spark)** | ✅ Réalisé | Script `spark/bronze_stream.py` avec Spark Streaming |
-| **Zone Bronze** | ✅ Réalisé | Stockage Delta Lake configuré |
-| **Zone Silver** | ✅ Réalisé | Script `spark/silver_batch.py` pour nettoyage |
-| **Zone Gold** | ⚠️ Partiel | Export CSV réalisé, mais absence de metrics Neo4j |
-| **Neo4j** | ❌ Manquant | Aucun script d'import ou requête Cypher |
-| **Dashboard** | ✅ Réalisé | Application Streamlit `dashboard/app.py` |
+1. [Prérequis](#prérequis)
+2. [Installation](#installation)
+3. [Configuration Neo4j](#configuration-neo4j)
+4. [Exécution du Pipeline](#exécution-du-pipeline)
+5. [Lancement du Dashboard](#lancement-du-dashboard)
+6. [Résolution de Problèmes](#résolution-de-problèmes)
 
 ---
 
-## 3. Analyse Détaillée par Étape
+## ✅ Prérequis
 
-### Étape 1 : Collecte en Temps Réel ✅
+### Logiciels Nécessaires
 
-**Fichier :** `kafka/producer.py`
+- **Python 3.9+** installé
+- **Neo4j Desktop** ou **Neo4j Server** (version 5.x recommandée)
+- **Apache Kafka** (pour la collecte en temps réel)
+- **Apache Spark** (pour le traitement des données)
 
-**Points Positifs :**
-- Simulation correcte des interactions (LIKE, SHARE, COMMENT)
-- 20 utilisateurs fictifs définis
-- Production régulière d'événements (1/seconde)
-- Format JSON structuré
+### Vérification de l'Installation
 
-**Code Analysé :**
-```python
-USERS = [f"user{i}" for i in range(1, 21)]
-ACTIONS = ["LIKE", "SHARE", "COMMENT"]
-event = {
-    "user_from": user_from,
-    "user_to": user_to,
-    "action": action,
-    "timestamp": timestamp
-}
+```bash
+# Vérifier Python
+python3 --version
+
+# Vérifier pip
+pip3 --version
 ```
 
 ---
 
-### Étape 2 : Stockage Bronze ✅
+## 📦 Installation
 
-**Fichier :** `spark/bronze_stream.py`
+### Étape 1 : Cloner ou Télécharger le Projet
 
-**Points Positifs :**
-- Configuration Delta Lake correcte
-- Lecture Kafka fonctionnelle
-- Parsing JSON implémenté
-- Checkpoints configurés
+```bash
+cd ~/
+git clone https://github.com/meriamouazdou/PROJET-INFLUENCE.git
+cd PROJET-INFLUENCE
+```
 
-**Configuration Technique :**
-- Spark 3.5.1
-- Delta Lake 4.0.0
-- Mode streaming avec append
+### Étape 2 : Créer un Environnement Virtuel (Recommandé)
+
+```bash
+# Créer l'environnement virtuel
+python3 -m venv venv
+
+# Activer l'environnement
+# Sur macOS/Linux :
+source venv/bin/activate
+
+# Sur Windows :
+venv\Scripts\activate
+```
+
+### Étape 3 : Installer les Dépendances
+
+```bash
+# Installer toutes les dépendances
+pip install -r requirements.txt
+
+# OU installer manuellement les packages essentiels
+pip install streamlit plotly pandas neo4j networkx
+```
 
 ---
 
-### Étape 3 : Nettoyage (Zone Silver) ✅
+## 🗄️ Configuration Neo4j
 
-**Fichier :** `spark/silver_batch.py`
+### Option 1 : Neo4j Desktop (Recommandé pour Développement)
 
-**Points Positifs :**
-- Suppression des doublons
-- Normalisation des actions (uppercase)
-- Conversion des timestamps
-- Ajout de colonnes dérivées (date, heure)
-- Filtrage des valeurs nulles
+1. **Ouvrir Neo4j Desktop**
+2. **Vérifier votre instance** (vous avez déjà une instance "meriam")
+3. **Noter les informations de connexion :**
+   - URI : `bolt://localhost:7687`
+   - Username : `neo4j`
+   - Password : `[votre mot de passe]`
 
-**Transformations Appliquées :**
+### Option 2 : Neo4j via Docker
+
+```bash
+docker run -d \
+  --name neo4j-influence \
+  -p 7474:7474 -p 7687:7687 \
+  -e NEO4J_AUTH=neo4j/password \
+  -e NEO4J_PLUGINS='["graph-data-science"]' \
+  neo4j:latest
+```
+
+### Configuration du Plugin GDS (Graph Data Science)
+
+Si GDS n'est pas installé :
+
+1. Dans Neo4j Desktop → Instance → Plugins
+2. Installer "Graph Data Science Library"
+3. Redémarrer l'instance
+
+**Vérification :**
+```cypher
+CALL gds.version()
+```
+
+---
+
+## ⚙️ Configuration des Scripts
+
+### Modifier les Paramètres de Connexion
+
+#### Dans `neo4j_import_and_metrics.py`
+
 ```python
-clean_df = (
-    bronze_df
-    .dropDuplicates([...])
-    .withColumn("action", upper(col("action")))
-    .withColumn("event_time", to_timestamp(...))
-    .withColumn("event_date", date_format(...))
-    .withColumn("event_hour", date_format(...))
+# Ligne 15-17
+NEO4J_URI = "bolt://localhost:7687"
+NEO4J_USER = "neo4j"
+NEO4J_PASSWORD = "votre_mot_de_passe"  # ⚠️ MODIFIER ICI
+```
+
+#### Dans `dashboard_advanced.py`
+
+```python
+# Ligne 124-126
+conn = Neo4jConnection(
+    uri="bolt://localhost:7687",
+    user="neo4j",
+    password="votre_mot_de_passe"  # ⚠️ MODIFIER ICI
 )
 ```
 
 ---
 
-### Étape 4 : Construction du Graphe ❌ MANQUANT
+## 🚀 Exécution du Pipeline Complet
 
-**Fichier :** `spark/gold_export.py` (export uniquement)
+### Pipeline Étape par Étape
 
-**Réalisé :**
-- Export des arêtes en CSV pour Neo4j
+#### Étape 1 : Démarrer Kafka (Optionnel - si données en temps réel)
 
-**MANQUANTS CRITIQUES :**
+```bash
+# Terminal 1 : Démarrer Zookeeper
+zookeeper-server-start /path/to/zookeeper.properties
 
-1. **Scripts Neo4j :**
-   - Aucun script d'import des données dans Neo4j
-   - Pas de requêtes Cypher pour créer les nœuds et relations
-   - Absence de configuration Neo4j
+# Terminal 2 : Démarrer Kafka
+kafka-server-start /path/to/kafka.properties
 
-2. **Algorithmes de Détection de Communautés :**
-   - Louvain non implémenté
-   - Label Propagation non implémenté
-   - Aucune utilisation de Neo4j GDS (Graph Data Science)
-
-3. **Calculs de Centralité :**
-   - PageRank non calculé
-   - Betweenness non calculé
-   - Absence d'analyse de centralité
-
-**Impact :** Cette étape est ESSENTIELLE au projet car elle constitue le cœur de l'analyse d'influence.
-
----
-
-### Étape 5 : Tableau de Bord ⚠️ PARTIEL
-
-**Fichier :** `dashboard/app.py`
-
-**Points Positifs :**
-- Interface Streamlit professionnelle
-- Visualisations Plotly intégrées
-- KPIs calculés (utilisateurs, interactions, engagement)
-- Analyse temporelle (par jour/heure)
-- Exploration par utilisateur
-
-**PROBLÈMES IDENTIFIÉS :**
-
-Le dashboard attend des données qui n'existent pas :
-```python
-METRICS_PATH = BASE_DIR / "datalake" / "gold" / "metrics" / "user_metrics.csv"
+# Terminal 3 : Lancer le producteur
+python kafka/producer.py
 ```
 
-Ce fichier devrait contenir :
-- `pagerank` : scores PageRank de Neo4j
-- `betweenness` : scores de centralité
-- `community_louvain` : communautés détectées
+#### Étape 2 : Traitement Spark (Bronze → Silver → Gold)
 
-**Sans ces données, le dashboard ne peut pas afficher :**
-- Top 10 influenceurs
-- Répartition des communautés
-- Métriques de centralité
+```bash
+# Terminal 1 : Streaming Bronze (si Kafka actif)
+python spark/bronze_stream.py
 
----
+# Terminal 2 : Traitement Silver
+python spark/silver_batch.py
 
-## 4. Indicateurs Décisionnels
-
-### 4.1 Demandés dans le Cahier des Charges
-
-| Indicateur | Statut | Commentaire |
-|------------|--------|-------------|
-| Nombre de communautés | ❌ | Nécessite Louvain/Label Propagation |
-| Top influenceurs (PageRank) | ❌ | Nécessite calcul Neo4j |
-| Centralité (Betweenness) | ❌ | Nécessite calcul Neo4j |
-| Évolution du réseau | ⚠️ | Partiellement (volume seulement) |
-| Taux d'engagement | ✅ | Calculé dans le dashboard |
-| Visualisation du graphe | ❌ | Neo4j Bloom non configuré |
-
----
-
-## 5. Environnement Technique
-
-### 5.1 Technologies Utilisées ✅
-
-- **Kafka** : Producteur implémenté
-- **Spark** : 3.5.1 avec Delta Lake
-- **Delta Lake** : 4.0.0
-- **Streamlit** : Dashboard fonctionnel
-- **Plotly** : Visualisations
-
-### 5.2 Technologies Manquantes ❌
-
-- **Neo4j** : Pas d'installation ni configuration
-- **Neo4j GDS** : Library d'algorithmes non utilisée
-- **Docker Compose** : Configuration manquante pour orchestration
-
----
-
-## 6. Livrables Attendus
-
-### 6.1 État des Livrables
-
-| Livrable | Statut | Notes |
-|----------|--------|-------|
-| 1. Rapport technique | ❌ | Non fourni |
-| 2. Code exécutable | ⚠️ | Partiel (Neo4j manquant) |
-| 3. Présentation orale | ❌ | Non fournie |
-| 4. Dashboard interactif | ⚠️ | Créé mais incomplet sans Neo4j |
-
----
-
-## 7. Éléments Manquants Critiques
-
-### 7.1 Priorité HAUTE
-
-1. **Scripts Neo4j d'import des données**
-   - Création des nœuds utilisateurs
-   - Création des relations (LIKE, SHARE, COMMENT)
-   - Import depuis CSV Gold
-
-2. **Algorithmes d'analyse de graphe**
-   - PageRank avec Neo4j GDS
-   - Détection de communautés (Louvain)
-   - Calcul de centralité (Betweenness)
-
-3. **Export des métriques calculées**
-   - Génération du fichier `user_metrics.csv`
-   - Mise à jour du dashboard avec vraies données
-
-### 7.2 Priorité MOYENNE
-
-4. **README.md**
-   - Instructions d'installation
-   - Guide d'exécution
-   - Architecture documentée
-
-5. **Docker Compose**
-   - Configuration Kafka
-   - Configuration Neo4j
-   - Configuration Spark
-
-6. **Rapport technique**
-   - Documentation de l'architecture
-   - Workflow détaillé
-   - Gouvernance des données
-
-### 7.3 Priorité BASSE
-
-7. **Tests unitaires**
-8. **Gestion des erreurs**
-9. **Logging avancé**
-
----
-
-## 8. Recommandations
-
-### 8.1 Actions Immédiates
-
-1. **Installer Neo4j**
-   ```bash
-   docker run -d \
-     --name neo4j \
-     -p 7474:7474 -p 7687:7687 \
-     -e NEO4J_AUTH=neo4j/password \
-     neo4j:latest
-   ```
-
-2. **Créer script d'import Neo4j** (`neo4j/import_graph.py`)
-   - Lire CSV Gold
-   - Créer nœuds User
-   - Créer relations avec propriétés
-
-3. **Implémenter algorithmes GDS** (`neo4j/compute_metrics.py`)
-   - PageRank
-   - Louvain
-   - Betweenness
-
-4. **Exporter métriques** vers `datalake/gold/metrics/user_metrics.csv`
-
-### 8.2 Structure Proposée
-
+# Terminal 3 : Export Gold
+python spark/gold_export.py
 ```
-projet-influence/
-├── kafka/
-│   └── producer.py ✅
-├── spark/
-│   ├── bronze_stream.py ✅
-│   ├── silver_batch.py ✅
-│   └── gold_export.py ✅
-├── neo4j/
-│   ├── import_graph.py ❌ À CRÉER
-│   ├── compute_metrics.py ❌ À CRÉER
-│   └── queries.cypher ❌ À CRÉER
-├── dashboard/
-│   └── app.py ⚠️
-├── docker-compose.yml ❌ À CRÉER
-└── README.md ❌ À CRÉER
+
+#### Étape 3 : Import Neo4j et Calcul des Métriques
+
+```bash
+# Exécuter le script d'import et calcul
+python neo4j_import_and_metrics.py
+```
+
+**Ce script va :**
+1. ✅ Nettoyer la base Neo4j
+2. ✅ Créer les contraintes
+3. ✅ Importer les nœuds et relations depuis CSV
+4. ✅ Calculer PageRank
+5. ✅ Calculer Betweenness Centrality
+6. ✅ Détecter les communautés (Louvain)
+7. ✅ Exporter les métriques vers CSV
+
+**Sortie attendue :**
+```
+======================================================================
+🚀 IMPORT ET ANALYSE NEO4J - PROJET INFLUENCE
+======================================================================
+
+📌 ÉTAPE 1 : Nettoyage de la base de données
+✅ Base de données nettoyée
+
+📌 ÉTAPE 2 : Création des contraintes
+✅ Contrainte User créée
+
+📌 ÉTAPE 3 : Import du graphe depuis CSV
+📊 Lecture de XXX interactions depuis edges.csv
+👥 Création de XX utilisateurs...
+✅ Utilisateurs créés
+🔗 Création de XXX relations...
+✅ Relations créées
+
+📌 ÉTAPE 4 : Calcul de PageRank
+📊 Calcul de PageRank...
+✅ PageRank calculé
+
+📌 ÉTAPE 5 : Calcul de Betweenness Centrality
+📊 Calcul de Betweenness Centrality...
+✅ Betweenness calculé
+
+📌 ÉTAPE 6 : Détection des communautés
+📊 Détection des communautés (Louvain)...
+✅ Communautés détectées
+
+📌 ÉTAPE 7 : Export des métriques
+✅ Métriques exportées vers ~/projet-influence/datalake/gold/metrics/user_metrics.csv
+📊 XX utilisateurs avec métriques
+
+🏆 Top 5 Influenceurs (PageRank):
+...
+
+======================================================================
+✅ TRAITEMENT TERMINÉ AVEC SUCCÈS
+======================================================================
 ```
 
 ---
 
-## 9. Évaluation Globale
+## 📊 Lancement du Dashboard
 
-### 9.1 Points Forts
+### Méthode Recommandée
 
-- Architecture Data Lake bien structurée (Bronze/Silver/Gold)
-- Pipeline Kafka → Spark → Delta fonctionnel
-- Dashboard visuellement professionnel
-- Code propre et bien organisé
-
-### 9.2 Lacunes Majeures
-
-- Absence totale de Neo4j (composant central du projet)
-- Aucun algorithme d'analyse de graphe
-- Dashboard incomplet sans métriques Neo4j
-- Documentation manquante
-
-### 9.3 Taux de Complétion
-
-**Estimation :**
-- Pipeline de données : 70%
-- Analyse de graphe : 0%
-- Dashboard : 60%
-- Documentation : 10%
-
-**GLOBAL : 35-40% du projet réalisé**
-
----
-
-## 10. Conclusion
-
-Le projet présente une base solide au niveau du pipeline de données (Kafka, Spark, Delta Lake) et du dashboard. Cependant, **le cœur du projet - l'analyse de réseau d'influence avec Neo4j - est totalement absent**.
-
-Sans Neo4j et les algorithmes d'analyse de graphe, le projet ne répond pas à son objectif principal : identifier les influenceurs, détecter les communautés et analyser la structure du réseau social.
-
-**Effort estimé pour complétion :** 
-- Neo4j + algorithmes : 8-12 heures
-- Documentation : 3-4 heures
-- Tests et corrections : 2-3 heures
-
-**TOTAL : 13-19 heures de travail supplémentaire**
-
----
-
-## Annexes
-
-### A. Exemple de Requête Cypher Manquante
-
-```cypher
-// Import des nœuds
-LOAD CSV WITH HEADERS FROM 'file:///edges.csv' AS row
-MERGE (u1:User {id: row.user_from})
-MERGE (u2:User {id: row.user_to})
-
-// Import des relations
-LOAD CSV WITH HEADERS FROM 'file:///edges.csv' AS row
-MATCH (u1:User {id: row.user_from})
-MATCH (u2:User {id: row.user_to})
-CREATE (u1)-[:INTERACTS {
-  action: row.action,
-  timestamp: datetime(row.event_time)
-}]->(u2)
+```bash
+# Depuis le dossier du projet
+streamlit run dashboard_advanced.py
 ```
 
-### B. Exemple de Calcul PageRank
+### Configuration du Port (si 8501 est occupé)
 
-```cypher
-CALL gds.graph.project(
-  'socialNetwork',
-  'User',
-  'INTERACTS'
-)
+```bash
+streamlit run dashboard_advanced.py --server.port 8502
+```
 
-CALL gds.pageRank.stream('socialNetwork')
-YIELD nodeId, score
-RETURN gds.util.asNode(nodeId).id AS user, score
-ORDER BY score DESC
-LIMIT 10
+### Ouvrir le Dashboard
+
+Le dashboard s'ouvre automatiquement dans votre navigateur à :
+```
+http://localhost:8501
 ```
 
 ---
 
-**Date du Rapport :** 2026-01-04  
-**Analyste :** Claude (Assistant IA)  
-**Projet :** PROJET-INFLUENCE - Analyse des Réseaux d'Influence
+## 🎨 Utilisation du Dashboard
+
+### Navigation
+
+Le dashboard comprend **6 pages** :
+
+1. **🏠 Vue d'ensemble**
+   - Métriques globales
+   - Distribution des actions
+   - Top 10 influenceurs
+   - Évolution temporelle
+
+2. **📊 Analyse des Influenceurs**
+   - Classement PageRank
+   - Classement Betweenness
+   - Corrélations
+   - Statistiques détaillées
+
+3. **👥 Communautés**
+   - Nombre de communautés
+   - Distribution des tailles
+   - Influence par communauté
+   - Top influenceurs par communauté
+
+4. **🔗 Visualisation du Graphe**
+   - Graphe interactif NetworkX
+   - Nœuds colorés par communauté
+   - Taille proportionnelle au PageRank
+   - Statistiques du réseau
+
+5. **📈 Analyses Temporelles**
+   - Évolution quotidienne
+   - Distribution horaire
+   - Heatmap des actions
+   - Analyse par jour de la semaine
+
+6. **🔍 Exploration Détaillée**
+   - Profil utilisateur
+   - Interactions entrantes/sortantes
+   - Réseau ego
+   - Métriques individuelles
+
+---
+
+## 🔧 Résolution de Problèmes
+
+### Problème 1 : Erreur de Connexion Neo4j
+
+**Erreur :**
+```
+❌ Erreur de connexion à Neo4j : Failed to establish connection
+```
+
+**Solution :**
+1. Vérifier que Neo4j est démarré
+2. Vérifier les credentials dans le code
+3. Tester la connexion :
+```bash
+neo4j status
+```
+
+### Problème 2 : Plugin GDS Non Trouvé
+
+**Erreur :**
+```
+There is no procedure with the name `gds.pageRank.write`
+```
+
+**Solution :**
+1. Installer le plugin GDS dans Neo4j Desktop
+2. Redémarrer Neo4j
+3. Vérifier : `CALL gds.version()`
+
+### Problème 3 : Fichier CSV Non Trouvé
+
+**Erreur :**
+```
+❌ Aucun fichier CSV trouvé dans /datalake/gold/graph_edges
+```
+
+**Solution :**
+1. Vérifier que Spark a généré le CSV :
+```bash
+ls ~/projet-influence/datalake/gold/graph_edges/
+```
+2. Exécuter `spark/gold_export.py` si nécessaire
+
+### Problème 4 : Module Non Trouvé
+
+**Erreur :**
+```
+ModuleNotFoundError: No module named 'streamlit'
+```
+
+**Solution :**
+```bash
+# Réinstaller les dépendances
+pip install -r requirements.txt
+
+# Ou installer le module manquant
+pip install streamlit
+```
+
+### Problème 5 : Port Déjà Utilisé
+
+**Erreur :**
+```
+OSError: [Errno 48] Address already in use
+```
+
+**Solution :**
+```bash
+# Utiliser un autre port
+streamlit run dashboard_advanced.py --server.port 8502
+```
+
+---
+
+## 📝 Commandes Rapides
+
+### Tout Exécuter en Une Fois (après avoir les données)
+
+```bash
+# 1. Import Neo4j et calcul des métriques
+python neo4j_import_and_metrics.py
+
+# 2. Lancer le dashboard
+streamlit run dashboard_advanced.py
+```
+
+### Vérifier que Tout Fonctionne
+
+```bash
+# Vérifier les fichiers générés
+ls -lh ~/projet-influence/datalake/gold/metrics/
+
+# Devrait afficher : user_metrics.csv
+```
+
+---
+
+## 🎯 Checklist de Vérification
+
+Avant de lancer le dashboard, vérifier :
+
+- [ ] Neo4j est démarré et accessible
+- [ ] Le plugin GDS est installé
+- [ ] Les fichiers CSV existent dans `/datalake/gold/graph_edges/`
+- [ ] Le mot de passe Neo4j est correctement configuré
+- [ ] Les dépendances Python sont installées
+- [ ] Le script `neo4j_import_and_metrics.py` s'est exécuté avec succès
+- [ ] Le fichier `user_metrics.csv` existe dans `/datalake/gold/metrics/`
+
+---
+
+## 📞 Support
+
+En cas de problème persistant :
+
+1. Vérifier les logs Neo4j : Neo4j Desktop → Instance → Logs
+2. Vérifier les logs Streamlit dans le terminal
+3. Consulter la documentation :
+   - Neo4j : https://neo4j.com/docs/
+   - Streamlit : https://docs.streamlit.io/
+   - Neo4j GDS : https://neo4j.com/docs/graph-data-science/
+
+---
+
+## 📊 Exemple de Flux Complet
+
+```bash
+# 1. Activer l'environnement virtuel
+source venv/bin/activate
+
+# 2. Vérifier Neo4j
+neo4j status
+
+# 3. Exécuter le pipeline Neo4j
+python neo4j_import_and_metrics.py
+
+# 4. Lancer le dashboard
+streamlit run dashboard_advanced.py
+
+# 5. Ouvrir http://localhost:8501 dans le navigateur
+```
+
+---
+
+**Bon développement ! 🚀**
